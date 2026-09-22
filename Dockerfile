@@ -1,6 +1,6 @@
 FROM node:lts-trixie-slim AS base
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates curl git wget ripgrep python3 \
+  && apt-get install -y --no-install-recommends ca-certificates curl git wget ripgrep python3 build-essential \
   && rm -rf /var/lib/apt/lists/* \
   && corepack enable
 
