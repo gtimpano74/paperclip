@@ -29,6 +29,7 @@ RUN apt-get update \
 
 COPY start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
+RUN npm install -g @anthropic-ai/claude-code
 
 ENV NODE_ENV=production \
   HOME=/paperclip \
