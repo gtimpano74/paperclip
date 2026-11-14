@@ -5,8 +5,16 @@ RUN apt-get update \
   && corepack enable
 
 FROM base AS deps
+# Upstream Paperclip ref to build. Accepts a release tag, branch or full commit SHA.
+# Bump this to upgrade; override with --build-arg PAPERCLIP_REF=<ref>.
+ARG PAPERCLIP_REPO=https://github.com/paperclipai/paperclip.git
+ARG PAPERCLIP_REF=v2026.1106.0
 WORKDIR /app
-RUN git clone --depth 1 https://github.com/paperclipai/paperclip.git . \
+RUN git init -q . \
+  && git remote add origin "$PAPERCLIP_REPO" \
+  && git fetch --depth 1 origin "$PAPERCLIP_REF" \
+  && git checkout -q FETCH_HEAD \
+  && echo "Building Paperclip $PAPERCLIP_REF ($(git rev-parse --short HEAD))" \
   && pnpm install --no-frozen-lockfile
 
 FROM base AS build
