@@ -5,7 +5,16 @@ mkdir -p /paperclip/instances/default/logs
 chown -R node:node /paperclip
 
 CONFIG_PATH="/paperclip/instances/default/config.json"
-if true; then
+BOOTSTRAP_MARKER="/paperclip/instances/default/.ceo-bootstrap-done"
+
+# Existing installs from before this marker already ran the bootstrap.
+if [ -f "$CONFIG_PATH" ] && [ ! -f "$BOOTSTRAP_MARKER" ]; then
+  touch "$BOOTSTRAP_MARKER"
+  chown node:node "$BOOTSTRAP_MARKER"
+fi
+
+# Only write the default config on first boot, so edits survive restarts.
+if [ ! -f "$CONFIG_PATH" ]; then
   PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}"
   cat > "$CONFIG_PATH" <<CONF
 {
@@ -29,9 +38,19 @@ until wget -qO /dev/null http://localhost:3100/api/health 2>/dev/null; do
   sleep 2
 done
 
-gosu node node --import ./server/node_modules/tsx/dist/loader.mjs -e "
+# Create the CEO invite only once. A failed run leaves no marker, so it retries next boot.
+if [ ! -f "$BOOTSTRAP_MARKER" ]; then
+  if gosu node node --import ./server/node_modules/tsx/dist/loader.mjs -e "
 import { bootstrapCeoInvite } from './cli/src/commands/auth-bootstrap-ceo.js';
-bootstrapCeoInvite({ expiresHours: 72 }).catch(e => console.error('Bootstrap error:', e.message));
-" 2>&1 || echo "Bootstrap script completed"
+bootstrapCeoInvite({ expiresHours: 72 }).catch(e => { console.error('Bootstrap error:', e.message); process.exitCode = 1; });
+" 2>&1; then
+    touch "$BOOTSTRAP_MARKER"
+    chown node:node "$BOOTSTRAP_MARKER"
+  else
+    echo "Bootstrap failed; will retry on next boot"
+  fi
+else
+  echo "CEO invite already bootstrapped; skipping"
+fi
 
 wait $SERVER_PID
